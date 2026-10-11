@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#041120">
+<title>Cliffy — Flood, Wind &amp; Freeze Watch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23041120'/%3E%3Cpath d='M8 36C8 19 17 9 28 9c9 0 13 6.5 11 12-1.4 4.2-6.6 4.6-8.5.9-1.2-2.4.9-4.6 3.2-3.7' fill='none' stroke='%235bc8ff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 42c4 0 6-2.4 10-2.4S23 42 27 42s6-2.4 10-2.4' fill='none' stroke='%234aa8e0' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg-1:#04101c; --bg-2:#082036; --bg-3:#0b2e4a;
+    --panel:rgba(255,255,255,.055);
+    --panel-2:rgba(255,255,255,.09);
+    --stroke:rgba(255,255,255,.13);
+    --stroke-2:rgba(255,255,255,.22);
+    --text:#eaf4ff; --muted:#8fb1cf; --faint:#5f7f9c;
+    --accent:#39b6f0; --accent-2:#5bc8ff;
+    --ok:#37d67a; --alert:#f4a83a; --severe:#ff5a5a;
+    --rain:#4aa8e0; --wind:#9fb8cf; --freeze:#7fe3ff; --flood:#8b8bf5;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1200px 700px at 82% -8%, rgba(57,182,240,.20), transparent 60%),
+      radial-gradient(900px 600px at -10% 10%, rgba(139,139,245,.10), transparent 55%),
+      linear-gradient(160deg,var(--bg-1),var(--bg-2) 55%,var(--bg-3));
+    min-height:100dvh;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.45;
+  }
+  a{color:var(--accent-2)}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input{font:inherit}
+
+  .app{max-width:1240px;margin:0 auto;padding:16px;display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  @media(max-width:900px){ .app{grid-template-columns:1fr} }
+
+  .card{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+
+  /* ---------- sidebar ---------- */
+  .side{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px}
+  @media(max-width:900px){ .side{position:static} }
+
+  .brand{display:flex;align-items:center;gap:12px;padding:16px}
+  .brand .logo{flex:0 0 auto;filter:drop-shadow(0 3px 8px rgba(91,200,255,.35))}
+  .brand h1{margin:0;font-size:22px;letter-spacing:.4px}
+  .brand .tag{margin:1px 0 0;font-size:11.5px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+
+  .searchwrap{padding:14px}
+  .searchwrap .hint{font-size:12px;color:var(--faint);margin:0 0 8px}
+  .searchrow{display:flex;gap:8px}
+  .pc-input{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--stroke);border-radius:11px;color:var(--text);padding:11px 12px;text-transform:uppercase;letter-spacing:.06em}
+  .pc-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,182,240,.18)}
+  .btn{background:var(--panel-2);border:1px solid var(--stroke);border-radius:11px;padding:11px 14px;white-space:nowrap;transition:background .15s,border-color .15s,transform .05s}
+  .btn:hover{background:rgba(255,255,255,.14)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:transparent;color:#04121d;font-weight:650}
+  .btn.primary:hover{background:linear-gradient(180deg,#7ad3ff,#4cc0f5)}
+  .btn.subtle{background:transparent}
+  .btn.wide{width:100%}
+
+  .aclist{margin-top:8px;border:1px solid var(--stroke);border-radius:11px;overflow:hidden;background:rgba(4,16,28,.92)}
+  .aclist[hidden]{display:none}
+  .ac{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--stroke);padding:10px 12px;letter-spacing:.06em}
+  .ac:last-child{border-bottom:0}
+  .ac:hover,.ac.active{background:rgba(57,182,240,.16)}
+  .ac .ar{color:var(--faint);font-size:11.5px;margin-left:8px;letter-spacing:0}
+
+  .msg{font-size:12.5px;margin:9px 0 0;min-height:1em}
+  .msg.err{color:var(--severe)} .msg.ok{color:var(--muted)}
+
+  .saved h2,.settings h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;padding:14px 14px 8px}
+  .saved .empty{padding:0 14px 14px;color:var(--faint);font-size:12.5px}
+  .plist{display:flex;flex-direction:column;gap:8px;padding:0 10px 12px}
+  .pitem{display:flex;align-items:center;gap:10px;border:1px solid var(--stroke);border-radius:12px;padding:10px 11px;background:rgba(255,255,255,.03);cursor:pointer;transition:border-color .15s,background .15s}
+  .pitem:hover{background:rgba(255,255,255,.07)}
+  .pitem.active{border-color:var(--accent);background:rgba(57,182,240,.12)}
+  .pitem .pc{font-weight:650;letter-spacing:.06em}
+  .pitem .ar{font-size:11.5px;color:var(--muted)}
+  .pitem .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{flex:0 0 auto;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid transparent;letter-spacing:.03em}
+  .badge.none{background:rgba(55,214,122,.14);color:var(--ok);border-color:rgba(55,214,122,.35)}
+  .badge.alert{background:rgba(244,168,58,.16);color:var(--alert);border-color:rgba(244,168,58,.4)}
+  .badge.severe{background:rgba(255,90,90,.16);color:var(--severe);border-color:rgba(255,90,90,.42)}
+  .pitem .x{flex:0 0 auto;background:none;border:0;color:var(--faint);padding:4px 6px;border-radius:8px}
+  .pitem .x:hover{color:var(--severe);background:rgba(255,90,90,.12)}
+
+  .settings{padding-bottom:6px}
+  .settings .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:7px 14px}
+  .settings .row label{font-size:12.5px;color:var(--muted)}
+  .settings input[type=number]{width:84px;background:rgba(0,0,0,.28);border:1px solid var(--stroke);border-radius:9px;color:var(--text);padding:7px 9px;text-align:right}
+  .settings input[type=number]:focus{outline:none;border-color:var(--accent)}
+  .settings .grp{margin:2px 14px 8px;padding-top:8px;border-top:1px dashed var(--stroke)}
+  .settings .grp:first-of-type{border-top:0;padding-top:0}
+  .settings .glabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:6px 14px 2px}
+  .settings .reset{margin:6px 14px 12px}
+  .collapsed .settings-body{display:none}
+
+  /* ---------- main ---------- */
+  .main{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .hero{padding:20px}
+  .hero .top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .hero .pcbig{font-size:30px;font-weight:750;letter-spacing:.04em}
+  .hero .area{color:var(--muted);margin-top:2px}
+  .hero .meta{color:var(--faint);font-size:12.5px;margin-top:6px}
+  .hero .now{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .chip{background:var(--panel-2);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:13px;display:inline-flex;gap:7px;align-items:center}
+  .status{margin-top:16px;border-radius:14px;padding:16px 18px;display:flex;gap:16px;align-items:center;border:1px solid var(--stroke);background:rgba(0,0,0,.18)}
+  .status .dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 5px rgba(255,255,255,.05)}
+  .status.ok .dot{background:var(--ok)} .status.alert .dot{background:var(--alert)} .status.severe .dot{background:var(--severe)}
+  .status .n{font-size:34px;font-weight:750;line-height:1}
+  .status .t{font-size:15px;color:var(--text)}
+  .status .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .outside{margin-top:14px;color:var(--alert);font-size:13px}
+
+  .strip{display:flex;gap:8px;overflow-x:auto;padding:14px;scrollbar-width:thin}
+  .dcell{flex:0 0 auto;width:66px;text-align:center;border:1px solid var(--stroke);border-radius:12px;padding:9px 4px;background:rgba(255,255,255,.03)}
+  .dcell.today{outline:2px solid var(--accent);outline-offset:1px}
+  .dcell.alert{border-color:rgba(244,168,58,.5);background:rgba(244,168,58,.09)}
+  .dcell.severe{border-color:rgba(255,90,90,.55);background:rgba(255,90,90,.11)}
+  .dcell .dow{font-size:11px;color:var(--muted);letter-spacing:.04em}
+  .dcell .day{font-size:10.5px;color:var(--faint)}
+  .dcell .ic{font-size:20px;margin:3px 0}
+  .dcell .v{font-size:11.5px;color:var(--muted)}
+  .dcell .v.rain{color:var(--rain)} .dcell .v.wind{color:var(--wind)} .dcell .v.freeze{color:var(--freeze)}
+
+  .section{padding:18px}
+  .section h2{margin:0 0 4px;font-size:17px;letter-spacing:.02em}
+  .section .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+
+  .evt{display:grid;grid-template-columns:96px 1fr auto;gap:14px;align-items:center;border:1px solid var(--stroke);border-left-width:4px;border-radius:13px;padding:13px 15px;background:rgba(255,255,255,.03);margin-bottom:9px}
+  .evt.severe{border-left-color:var(--severe)}
+  .evt.alert{border-left-color:var(--alert)}
+  .evt .when .dow{font-weight:650}
+  .evt .when .d{font-size:12px;color:var(--muted)}
+  .evt .when .rel{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .hz{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--stroke);display:inline-flex;gap:6px;align-items:center;background:rgba(0,0,0,.18)}
+  .hz.rain{border-color:rgba(74,168,224,.45)} .hz.wind{border-color:rgba(159,184,207,.45)} .hz.freeze{border-color:rgba(127,227,255,.45)}
+  .hz.severe{background:rgba(255,90,90,.14);border-color:rgba(255,90,90,.5)}
+  .hz .lv{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--severe)}
+  .hz.alert .lv{color:var(--alert)}
+  .evt .ic{font-size:30px;text-align:right}
+
+  .flood .fitem{border:1px solid var(--stroke);border-left:4px solid var(--flood);border-radius:12px;padding:12px 14px;background:rgba(139,139,245,.06);margin-bottom:9px}
+  .flood .fitem.sv1{border-left-color:#ff3b3b}
+  .flood .fitem.sv2{border-left-color:#ff8a3a}
+  .flood .fitem.sv3{border-left-color:#ffd23a}
+  .flood .sev{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+  .flood .farea{font-weight:650;margin-top:2px}
+  .flood .fm{color:var(--muted);font-size:13px;margin-top:4px}
+  .flood .ft{color:var(--faint);font-size:11.5px;margin-top:6px}
+  .flood .good{color:var(--ok)}
+
+  .empty-note{color:var(--faint);font-size:13.5px;padding:6px 0}
+  .legend{font-size:11.5px;color:var(--faint);padding:0 18px 16px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(4,16,28,.95);border:1px solid var(--stroke-2);padding:11px 16px;border-radius:12px;box-shadow:var(--shadow);font-size:13.5px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  .loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13.5px;padding:20px}
+  .spin{width:16px;height:16px;border:2px solid var(--stroke);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{color:var(--faint);font-size:11.5px;text-align:center;padding:6px 16px 30px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="side">
+    <div class="card brand">
+      <div class="logo">
+        <svg viewBox="0 0 44 48" width="30" height="33" aria-hidden="true">
+          <defs>
+            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#9be7ff"/><stop offset="1" stop-color="#1e7fc0"/>
+            </linearGradient>
+          </defs>
+          <path d="M6 38C6 20 15 8 26 8c10 0 14 7 12 13-1.5 4.5-7 5-9 1-1.3-2.6 1-5 3.5-4" fill="none" stroke="url(#cg)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 45c4 0 6-2.5 10-2.5S21 45 25 45s6-2.5 10-2.5" fill="none" stroke="#4aa8e0" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Cliffy</h1>
+        <p class="tag">Flood · Wind · Freeze</p>
+      </div>
+    </div>
+
+    <div class="card searchwrap">
+      <p class="hint">Search a UK postcode within 40 miles of Tunbridge Wells.</p>
+      <div class="searchrow">
+        <input id="pcInput" class="pc-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="e.g. TN1 1BT" aria-label="UK postcode">
+        <button id="pcGo" class="btn primary">Go</button>
+      </div>
+      <div id="acList" class="aclist" hidden></div>
+      <button id="geoBtn" class="btn wide subtle" style="margin-top:9px">📍 Use my location</button>
+      <p id="msg" class="msg"></p>
+    </div>
+
+    <div class="card saved">
+      <h2>Saved postcodes</h2>
+      <div id="savedList"></div>
+    </div>
+
+    <div id="settings" class="card settings collapsed">
+      <h2 style="cursor:pointer" id="settingsToggle">⚙︎ Alert thresholds &nbsp;<span id="settingsCaret" style="color:var(--faint)">▸</span></h2>
+      <div class="settings-body">
+        <div class="glabel">Rainfall (mm / day)</div>
+        <div class="row"><label for="t-rainAlert">Alert at</label><input id="t-rainAlert" type="number" step="1" min="0"></div>
+        <div class="row"><label for="t-rainSevere">Severe at</label><input id="t-rainSevere" type="number" step="1" min="0"></div>
+        <div class="glabel">Wind gusts (mph)</div>
+        <div class="row"><label for="t-gustAlert">Alert at</label><input id="t-gustAlert" type="number" step="1" min="0"></div>
+        <div class="row"><label for="t-gustSevere">Severe at</label><input id="t-gustSevere" type="number" step="1" min="0"></div>
+        <div class="glabel">Minimum temperature (°C)</div>
+        <div class="row"><label for="t-freezeAlert">Freeze at or below</label><input id="t-freezeAlert" type="number" step="0.5"></div>
+        <div class="row"><label for="t-freezeSevere">Hard freeze at or below</label><input id="t-freezeSevere" type="number" step="0.5"></div>
+        <div class="grp"></div>
+        <button id="resetTh" class="btn reset">Reset to defaults</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main" id="main">
+    <div class="card section">
+      <div class="loading"><span class="spin"></span> Add a postcode to begin.</div>
+    </div>
+  </main>
+</div>
+
+<footer>
+  Cliffy · data: Open-Meteo, Environment Agency &amp; postcodes.io · coverage 40 mi around Tunbridge Wells ·
+  <span id="builtOn"></span>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   Cliffy — flood / wind / freeze watch for a 40-mile radius of Tunbridge Wells
+   Single-file vanilla JS. No build step. Data: Open-Meteo, EA, postcodes.io.
+   ========================================================================= */
+
+var SERVICE = { name: "Tunbridge Wells", lat: 51.132, lon: 0.263, radiusMiles: 40 };
+var EA_DIST_KM = 64;               // ~40 miles
+var LS_KEY = "cliffy.v1";
+
+var DEFAULT_TH = {
+  rainAlert: 10, rainSevere: 25,
+  gustAlert: 40, gustSevere: 55,
+  freezeAlert: 0, freezeSevere: -3
+};
+
+var HAZ = {
+  rain:   { icon: "\u{1F327}\u{FE0F}", text: "Heavy rainfall" },
+  wind:   { icon: "\u{1F4A8}", text: "High winds" },
+  freeze: { icon: "\u{2744}\u{FE0F}", text: "Freezing" }
+};
+
+/* ---------- state ---------- */
+var state = {
+  thresholds: Object.assign({}, DEFAULT_TH),
+  saved: [],            // [{ postcode, area, parish, country, latitude, longitude, distanceMi }]
+  selected: null,       // postcode string
+  cache: {}             // postcode -> { data, flooded, analyzed, at }
+};
+
+/* ---------- tiny dom helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function el(tag, attrs, kids){
+  var n = document.createElement(tag);
+  if (attrs) for (var k in attrs){
+    if (k === "class") n.className = attrs[k];
+    else if (k === "html") n.innerHTML = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k.indexOf("on") === 0) n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  if (kids) (Array.isArray(kids)?kids:[kids]).forEach(function(c){
+    if (c == null) return;
+    n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return n;
+}
+function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+
+/* iOS: plain click is swallowed while the keyboard is open — use pointer events. */
+function onTap(node, fn){
+  var fired = false;
+  node.addEventListener("pointerup", function(e){
+    if (e.button !== undefined && e.button !== 0) return;
+    fired = true; fn(e); setTimeout(function(){ fired = false; }, 400);
+  });
+  node.addEventListener("click", function(e){ if (!fired) fn(e); });
+}
+
+var toastTimer = null;
+function toast(msg){
+  var t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+}
+
+/* ---------- storage ---------- */
+function loadState(){
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    var j = JSON.parse(raw);
+    if (j.thresholds) state.thresholds = Object.assign({}, DEFAULT_TH, j.thresholds);
+    if (Array.isArray(j.saved)) state.saved = j.saved;
+    if (typeof j.selected === "string") state.selected = j.selected;
+  } catch(e){ /* ignore corrupt storage */ }
+}
+function saveState(){
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      thresholds: state.thresholds, saved: state.saved, selected: state.selected
+    }));
+  } catch(e){}
+}
+
+/* ---------- geo ---------- */
+function toRad(d){ return d * Math.PI / 180; }
+function haversineMi(a, b, c, d){
+  var R = 3958.7613;
+  var dLat = toRad(c - a), dLon = toRad(d - b);
+  var s = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+/* ---------- WMO weather codes ---------- */
+function wmo(code){
+  var t = [
+    [/\bclear\b/, "\u2600\uFE0F"],
+    [/\bpartly\b/, "\u26C5"],
+    [/\bcloud|overcast\b/, "\u2601\uFE0F"],
+    [/\bfog\b/, "\u{1F32B}\u{FE0F}"],
+    [/\bdrizzle\b/, "\u{1F326}\u{FE0F}"],
+    [/\bshowers?\b/, "\u{1F326}\u{FE0F}"],
+    [/\brain\b/, "\u{1F327}\u{FE0F}"],
+    [/\bsnow\b/, "\u{1F328}\u{FE0F}"],
+    [/\bthunder|hail\b/, "\u26C8\uFE0F"]
+  ];
+  return wmoLookup(code, t);
+}
+function wmoLookup(code, t){
+  var all = [
+    {c:[0], d:"Clear sky", i:"\u2600\uFE0F"},
+    {c:[1], d:"Mainly clear", i:"\u{1F324}\u{FE0F}"},
+    {c:[2], d:"Partly cloudy", i:"\u26C5"},
+    {c:[3], d:"Overcast", i:"\u2601\uFE0F"},
+    {c:[45,48], d:"Fog", i:"\u{1F32B}\u{FE0F}"},
+    {c:[51,53,55,56,57], d:"Drizzle", i:"\u{1F326}\u{FE0F}"},
+    {c:[61], d:"Light rain", i:"\u{1F327}\u{FE0F}"},
+    {c:[63], d:"Rain", i:"\u{1F327}\u{FE0F}"},
+    {c:[65], d:"Heavy rain", i:"\u{1F327}\u{FE0F}"},
+    {c:[66,67], d:"Freezing rain", i:"\u{1F327}\u{FE0F}"},
+    {c:[71,73,75,77], d:"Snow", i:"\u{1F328}\u{FE0F}"},
+    {c:[80,81,82], d:"Rain showers", i:"\u{1F326}\u{FE0F}"},
+    {c:[85,86], d:"Snow showers", i:"\u{1F328}\u{FE0F}"},
+    {c:[95], d:"Thunderstorm", i:"\u26C8\uFE0F"},
+    {c:[96,99], d:"Thunderstorm with hail", i:"\u26C8\uFE0F"}
+  ];
+  for (var i=0;i<all.length;i++) if (all[i].c.indexOf(code) >= 0) return { d: all[i].d, i: all[i].i };
+  return { d: "—", i: "\u2601\uFE0F" };
+}
+
+/* ---------- postcodes.io ---------- */
+function cleanPc(s){ return String(s || "").replace(/\s+/g, "").toUpperCase(); }
+function prettyPc(s){ var c = cleanPc(s); return c.length > 3 ? c.slice(0, c.length-3) + " " + c.slice(-3) : c; }
+
+function lookupPostcode(pc){
+  var clean = cleanPc(pc);
+  return fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(clean))
+    .then(function(r){ if (!r.ok) throw new Error("Postcode not found"); return r.json(); })
+    .then(function(j){
+      var r = j.result;
+      if (!r) throw new Error("Postcode not found");
+      return {
+        postcode: r.postcode,
+        latitude: r.latitude, longitude: r.longitude,
+        area: r.admin_district || r.region || r.country || "",
+        parish: r.parish || "", country: r.country || "",
+        region: r.region || ""
+      };
+    });
+}
+function autocompletePostcode(q){
+  var clean = cleanPc(q);
+  if (clean.length < 2) return Promise.resolve([]);
+  return fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(clean) + "/autocomplete")
+    .then(function(r){ return r.ok ? r.json() : { result: [] }; })
+    .then(function(j){ return j.result || []; })
+    .catch(function(){ return []; });
+}
+function reversePostcode(lat, lon){
+  return fetch("https://api.postcodes.io/postcodes?lon=" + lon + "&lat=" + lat + "&limit=1")
+    .then(function(r){ if (!r.ok) throw new Error("Could not find a postcode"); return r.json(); })
+    .then(function(j){
+      var r = (j.result || [])[0];
+      if (!r) throw new Error("Could not find a postcode");
+      return {
+        postcode: r.postcode, latitude: r.latitude, longitude: r.longitude,
+        area: r.admin_district || r.region || "", parish: r.parish || "", country: r.country || ""
+      };
+    });
+}
+
+/* ---------- weather (Open-Meteo) ---------- */
+function fetchWeather(lat, lon){
+  var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
+    "&daily=precipitation_sum,wind_gusts_10m_max,temperature_2m_min,weather_code,precipitation_probability_max" +
+    "&current=temperature_2m,wind_gusts_10m,weather_code,precipitation" +
+    "&past_days=14&forecast_days=15" +
+    "&timezone=Europe%2FLondon&wind_speed_unit=mph";
+  return fetch(url).then(function(r){
+    if (!r.ok) throw new Error("Weather data unavailable");
+    return r.json();
+  });
+}
+function fetchFloods(lat, lon){
+  var url = "https://environment.data.gov.uk/flood-monitoring/id/floods?lat=" + lat +
+    "&long=" + lon + "&dist=" + EA_DIST_KM + "&min-severity=3";
+  return fetch(url).then(function(r){
+    if (!r.ok) throw new Error("flood " + r.status);
+    return r.json();
+  }).then(function(j){ return j.items || []; })
+    .catch(function(){ return null; }); // null = unavailable (vs [] = none)
+}
+
+/* ---------- analysis ---------- */
+function analyze(data, th){
+  var d = data.daily || {};
+  var times = d.time || [];
+  var todayIso = (data.current && data.current.time)
+    ? String(data.current.time).slice(0,10)
+    : new Date().toLocaleDateString("en-CA");
+
+  var days = times.map(function(iso, i){
+    var rain = num(d.precipitation_sum, i);
+    var gust = num(d.wind_gusts_10m_max, i);
+    var tmin = num(d.temperature_2m_min, i);
+    var code = d.weather_code && d.weather_code[i] != null ? d.weather_code[i] : 0;
+    var pop  = num(d.precipitation_probability_max, i);
+    var hazards = [];
+
+    if (rain != null){
+      if (rain >= th.rainSevere) hazards.push({ type:"rain", level:"severe", value:rain });
+      else if (rain >= th.rainAlert) hazards.push({ type:"rain", level:"alert", value:rain });
+    }
+    if (gust != null){
+      if (gust >= th.gustSevere) hazards.push({ type:"wind", level:"severe", value:gust });
+      else if (gust >= th.gustAlert) hazards.push({ type:"wind", level:"alert", value:gust });
+    }
+    if (tmin != null){
+      if (tmin <= th.freezeSevere) hazards.push({ type:"freeze", level:"severe", value:tmin });
+      else if (tmin <= th.freezeAlert) hazards.push({ type:"freeze", level:"alert", value:tmin });
+    }
+    var worst = hazards.some(function(h){return h.level==="severe";}) ? "severe"
+              : (hazards.length ? "alert" : "none");
+    return {
+      iso: iso, code: code, rain: rain, gust: gust, tmin: tmin, pop: pop,
+      hazards: hazards, worst: worst,
+      isToday: iso === todayIso, isPast: iso < todayIso, isFuture: iso > todayIso
+    };
+  });
+
+  var upcoming = days.filter(function(x){ return !x.isPast; });   // today + future
+  var recent   = days.filter(function(x){ return x.isPast; });
+  function sevCount(arr){ return arr.filter(function(x){ return x.worst==="severe"; }).length; }
+  function alertCount(arr){
+    return arr.filter(function(x){ return x.worst==="alert"; }).length;
+  }
+  return {
+    days: days, upcoming: upcoming, recent: recent, current: data.current || null,
+    sevUp: sevCount(upcoming), alertUp: alertCount(upcoming),
+    sevRe: sevCount(recent), alertRe: alertCount(recent)
+  };
+}
+function num(arr, i){ return (arr && arr[i] != null && !isNaN(arr[i])) ? Number(arr[i]) : null; }
+
+function riskLevel(a){
+  if (a.sevUp > 0) return "severe";
+  if (a.alertUp > 0) return "alert";
+  return "none";
+}
+
+/* ---------- render ---------- */
+function renderSaved(){
+  var host = $("savedList");
+  clear(host);
+  if (!state.saved.length){
+    host.appendChild(el("div", { class:"empty", text:"No postcodes saved yet. Search one above." }));
+    return;
+  }
+  var list = el("div", { class:"plist" });
+  state.saved.forEach(function(p){
+    var cached = state.cache[p.postcode];
+    var lvl = "none", label = "—";
+    if (cached && cached.analyzed){
+      lvl = riskLevel(cached.analyzed);
+      label = lvl === "severe" ? cached.analyzed.sevUp + " severe"
+            : lvl === "alert"  ? cached.analyzed.alertUp + " alert"
+            : "clear";
+    } else { label = "…"; }
+    var item = el("div", { class:"pitem" + (p.postcode===state.selected ? " active" : "") }, [
+      el("div", { class:"grow" }, [
+        el("div", { class:"pc", text: p.postcode }),
+        el("div", { class:"ar", text: p.area || p.country || "" })
+      ]),
+      el("span", { class:"badge " + lvl, text: label })
+    ]);
+    onTap(item, function(){ selectPostcode(p.postcode); });
+    var x = el("button", { class:"x", title:"Remove", "aria-label":"Remove" }, "✕");
+    onTap(x, function(e){ e.stopPropagation(); removePostcode(p.postcode); });
+    item.appendChild(x);
+    list.appendChild(item);
+  });
+  host.appendChild(list);
+}
+
+function renderMain(){
+  var host = $("main");
+  clear(host);
+  var pc = state.selected;
+  if (!pc){ host.appendChild(el("div", { class:"card section" },
+    el("div", { class:"loading", text:"Add a postcode to begin." }))); return; }
+
+  var entry = state.saved.filter(function(p){ return p.postcode === pc; })[0]
+           || state.cache[pc] && state.cache[pc].place;
+  var cached = state.cache[pc];
+  if (!cached){
+    host.appendChild(el("div", { class:"card section" },
+      el("div", { class:"loading" }, [ el("span", { class:"spin" }), " Loading " + pc + "…" ])));
+    return;
+  }
+  if (cached.error){
+    host.appendChild(el("div", { class:"card section" },
+      el("div", { class:"empty-note", text:cached.error })));
+    return;
+  }
+  var place = (entry) || cached.place;
+  var a = cached.analyzed;
+
+  host.appendChild(heroCard(place, a));
+  host.appendChild(stripCard(a));
+  host.appendChild(floodCard(cached.floods, place));
+  host.appendChild(eventsCard(a));
+  host.appendChild(legendCard());
+}
+
+function heroCard(place, a){
+  var distMi = place.distanceMi;
+  var outside = distMi != null && distMi > SERVICE.radiusMiles;
+  var lvl = riskLevel(a);
+  var statusText, subText;
+  if (a.sevUp === 0 && a.alertUp === 0){
+    statusText = "No significant weather in the next 14 days";
+    subText = "Nothing above your alert thresholds is forecast.";
+  } else if (a.sevUp > 0){
+    statusText = a.sevUp + " severe event day" + (a.sevUp>1?"s":"") + " in the next 14 days";
+    subText = (a.alertUp ? a.alertUp + " milder alert day" + (a.alertUp>1?"s":"") + " too. " : "") + "Take action for the severe days below.";
+  } else {
+    statusText = a.alertUp + " alert day" + (a.alertUp>1?"s":"") + " in the next 14 days";
+    subText = "No severe events forecast, but keep an eye on the days below.";
+  }
+
+  var now = a.current;
+  var nowChips = [];
+  if (now && now.temperature_2m != null) nowChips.push(chip("🌡️ " + Math.round(now.temperature_2m) + "°C"));
+  if (now && now.wind_gusts_10m != null) nowChips.push(chip("💨 " + Math.round(now.wind_gusts_10m) + " mph"));
+  if (now && now.weather_code != null) nowChips.push(chip(wmo(now.weather_code).i + " " + wmo(now.weather_code).d));
+
+  var top = el("div", { class:"top" }, [
+    el("div", {}, [
+      el("div", { class:"pcbig", text: place.postcode }),
+      el("div", { class:"area", text: [place.area, place.parish].filter(Boolean).join(" · ") || "—" }),
+      el("div", { class:"meta", text: distMi != null ? (distMi.toFixed(1) + " mi from " + SERVICE.name) : "Location" })
+    ]),
+    el("div", { class:"now" }, nowChips)
+  ]);
+
+  var body = el("div", { class:"card hero" }, [ top ]);
+  var status = el("div", { class:"status " + lvl }, [
+    el("span", { class:"dot" }),
+    el("div", { class:"n", text: String(a.sevUp + a.alertUp) }),
+    el("div", {}, [ el("div", { class:"t", text: statusText }), el("div", { class:"sub", text: subText }) ])
+  ]);
+  body.appendChild(status);
+  if (outside){
+    body.appendChild(el("div", { class:"outside",
+      text: "⚠ This postcode is outside the 40-mile service area (" + distMi.toFixed(1) + " mi from " + SERVICE.name + ")." }));
+  }
+  return body;
+}
+
+function chip(txt){ return el("span", { class:"chip", text: txt }); }
+
+function stripCard(a){
+  var strip = el("div", { class:"strip" });
+  function cell(d){
+    var dt = new Date(d.iso + "T12:00:00");
+    var dow = dt.toLocaleDateString("en-GB", { weekday:"short" });
+    var day = dt.toLocaleDateString("en-GB", { day:"numeric", month:"short" });
+    var rel = d.isToday ? "Today" : (d.isPast ? "Past" : "Forecast");
+    var kids = [
+      el("div", { class:"dow", text: dow }),
+      el("div", { class:"day", text: d.isToday ? "today" : day }),
+      el("div", { class:"ic", text: wmo(d.code).i })
+    ];
+    if (d.rain != null) kids.push(el("div", { class:"v rain", text: d.rain.toFixed(1) + "mm" }));
+    if (d.gust != null) kids.push(el("div", { class:"v wind", text: Math.round(d.gust) + "mph" }));
+    if (d.tmin != null) kids.push(el("div", { class:"v freeze", text: Math.round(d.tmin) + "°" }));
+    return el("div", { class:"dcell " + d.worst + (d.isToday ? " today" : ""), title: rel }, kids);
+  }
+  a.days.forEach(function(d){ strip.appendChild(cell(d)); });
+
+  return el("div", { class:"card" }, [
+    el("div", { class:"section", style:"padding-bottom:0" }, [
+      el("h2", { text:"14-day outlook" }),
+      el("p", { class:"sub", text:"Daily rainfall · peak gusts · minimum temperature. Highlighted days breach your thresholds." })
+    ]),
+    strip
+  ]);
+}
+
+function floodCard(floods, place){
+  var body = el("div", { class:"card section flood" }, [
+    el("h2", { text:"Live flood warnings" }),
+    el("p", { class:"sub", text:"Environment Agency warnings within 40 miles of " + SERVICE.name + "." })
+  ]);
+  if (floods === null){
+    body.appendChild(el("div", { class:"empty-note", text:"Flood warning feed unavailable right now." }));
+    return body;
+  }
+  if (!floods.length){
+    body.appendChild(el("div", { class:"empty-note good", text:"✓ No active flood warnings in the area." }));
+    return body;
+  }
+  floods.forEach(function(f){
+    var lvl = Number(f.severityLevel) || 3;
+    var sevName = lvl === 1 ? "Severe flood warning" : lvl === 2 ? "Flood warning" : "Flood alert";
+    var area = (f.floodArea && (f.floodArea.label || f.floodArea.county)) || f.description || "Flood area";
+    var river = f.floodArea && f.floodArea.riverOrSea;
+    var when = f.timeRaised ? new Date(f.timeRaised).toLocaleString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : "";
+    body.appendChild(el("div", { class:"fitem sv" + lvl }, [
+      el("div", { class:"sev", text: sevName }),
+      el("div", { class:"farea", text: area + (river ? " (" + river + ")" : "") }),
+      f.message || f.description ? el("div", { class:"fm", text: (f.message || f.description) }) : null,
+      el("div", { class:"ft", text: [f.floodArea && f.floodArea.county, when].filter(Boolean).join(" · ") })
+    ]));
+  });
+  return body;
+}
+
+function eventsCard(a){
+  var body = el("div", { class:"card section" }, [
+    el("h2", { text:"Bad-weather events" }),
+    el("p", { class:"sub", text:"Days that breach your thresholds, past 14 days and next 14 days." })
+  ]);
+
+  var upcoming = a.upcoming.filter(function(d){ return d.hazards.length; });
+  var recent   = a.recent.filter(function(d){ return d.hazards.length; }).reverse();
+
+  body.appendChild(evGroup("Upcoming (next 14 days)", upcoming, true));
+  body.appendChild(evGroup("Recent (last 14 days)", recent, false));
+  return body;
+}
+
+function evGroup(title, days, upcoming){
+  var wrap = el("div", {}, [ el("h3", { style:"font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 10px", text: title }) ]);
+  if (!days.length){
+    wrap.appendChild(el("div", { class:"empty-note", text: upcoming ? "No threshold breaches forecast in the next 14 days." : "No threshold breaches in the last 14 days." }));
+    return wrap;
+  }
+  days.forEach(function(d){ wrap.appendChild(eventRow(d)); });
+  return wrap;
+}
+
+function eventRow(d){
+  var dt = new Date(d.iso + "T12:00:00");
+  var dow = d.isToday ? "Today" : dt.toLocaleDateString("en-GB", { weekday:"long" });
+  var dstr = dt.toLocaleDateString("en-GB", { day:"numeric", month:"short" });
+  var rel = d.isToday ? "" : (d.isPast ? "past" : "forecast");
+
+  var chips = el("div", { class:"chips" });
+  d.hazards.forEach(function(h){
+    var meta = HAZ[h.type];
+    var val = h.type === "rain" ? h.value.toFixed(1) + " mm"
+            : h.type === "wind" ? Math.round(h.value) + " mph"
+            : Math.round(h.value) + " °C";
+    chips.appendChild(el("span", { class:"hz " + h.type + " " + h.level }, [
+      meta.icon + " " + meta.text + " · " + val + " ",
+      el("span", { class:"lv", text: h.level === "severe" ? "SEVERE" : "ALERT" })
+    ]));
+  });
+
+  return el("div", { class:"evt " + d.worst }, [
+    el("div", { class:"when" }, [
+      el("div", { class:"dow", text: dow }),
+      el("div", { class:"d", text: dstr }),
+      rel ? el("div", { class:"rel", text: rel }) : null
+    ]),
+    chips,
+    el("div", { class:"ic", text: wmo(d.code).i })
+  ]);
+}
+
+function legendCard(){
+  var th = state.thresholds;
+  return el("div", { class:"card" }, [
+    el("div", { class:"legend", html:
+      "Alert thresholds — rainfall ≥ " + th.rainAlert + " mm/day, gusts ≥ " + th.gustAlert + " mph, min temp ≤ " + th.freezeAlert + " °C. " +
+      "Severe — rainfall ≥ " + th.rainSevere + " mm/day, gusts ≥ " + th.gustSevere + " mph, min temp ≤ " + th.freezeSevere + " °C. " +
+      "Edit these in the sidebar." })
+  ]);
+}
+
+/* ---------- actions ---------- */
+function setMsg(text, kind){
+  var m = $("msg");
+  m.textContent = text || "";
+  m.className = "msg" + (kind ? " " + kind : "");
+}
+
+function computePlace(loc){
+  var distMi = haversineMi(SERVICE.lat, SERVICE.lon, loc.latitude, loc.longitude);
+  return {
+    postcode: loc.postcode, latitude: loc.latitude, longitude: loc.longitude,
+    area: loc.area || "", parish: loc.parish || "", country: loc.country || "",
+    distanceMi: distMi
+  };
+}
+
+function addPostcode(loc){
+  var place = computePlace(loc);
+  var existing = state.saved.filter(function(p){ return p.postcode === place.postcode; })[0];
+  if (existing){
+    existing.area = place.area; existing.parish = place.parish;
+    existing.latitude = place.latitude; existing.longitude = place.longitude;
+    existing.distanceMi = place.distanceMi;
+  } else {
+    state.saved.push(place);
+  }
+  state.selected = place.postcode;
+  saveState();
+  renderSaved();
+  loadSelected(true);
+}
+
+function removePostcode(pc){
+  state.saved = state.saved.filter(function(p){ return p.postcode !== pc; });
+  delete state.cache[pc];
+  if (state.selected === pc) state.selected = state.saved.length ? state.saved[0].postcode : null;
+  saveState();
+  renderSaved();
+  if (state.selected) loadSelected(false); else renderMain();
+}
+
+function selectPostcode(pc){
+  state.selected = pc;
+  saveState();
+  renderSaved();
+  loadSelected(false);
+}
+
+function loadSelected(force){
+  var pc = state.selected;
+  if (!pc) { renderMain(); return; }
+  var cached = state.cache[pc];
+  if (cached && cached.analyzed && !force){ renderMain(); return; }
+  if (cached && cached.error && !force){ renderMain(); return; }
+
+  var place = state.saved.filter(function(p){ return p.postcode === pc; })[0];
+  renderSaved();
+  renderMain();  // shows spinner
+
+  var pW = fetchWeather(place.latitude, place.longitude);
+  var pF = fetchFloods(place.latitude, place.longitude);
+  Promise.all([pW, pF]).then(function(res){
+    if (state.selected !== pc) return;   // user switched away
+    var data = res[0], floods = res[1];
+    state.cache[pc] = {
+      place: place,
+      analyzed: analyze(data, state.thresholds),
+      floods: floods,
+      at: Date.now()
+    };
+    saveState();
+    renderSaved();
+    renderMain();
+  }).catch(function(err){
+    if (state.selected !== pc) return;
+    state.cache[pc] = { place: place, error: "Could not load weather for " + pc + ". " + (err && err.message ? err.message : "") };
+    renderSaved();
+    renderMain();
+  });
+}
+
+function reanalyzeAll(){
+  Object.keys(state.cache).forEach(function(pc){
+    var c = state.cache[pc];
+    if (c && c.data == null && c.analyzed){
+      // re-derive from stored raw? we didn't keep raw; refetch lazily on select.
+      delete state.cache[pc];
+    }
+  });
+  if (state.selected) loadSelected(true);
+  else renderMain();
+  renderSaved();
+}
+
+/* ---------- search UI ---------- */
+var acTimer = null, acIndex = -1, acItems = [];
+function setupSearch(){
+  var input = $("pcInput");
+  var acList = $("acList");
+
+  function hideAc(){ acList.hidden = true; clear(acList); acItems = []; acIndex = -1; }
+
+  function showAc(items){
+    clear(acList); acItems = items; acIndex = -1;
+    if (!items.length){ hideAc(); return; }
+    items.forEach(function(pc, i){
+      var row = el("button", { class:"ac", type:"button" }, [
+        pc, el("span", { class:"ar", text:"postcode" })
+      ]);
+      onTap(row, function(){ input.value = pc; hideAc(); doLookup(pc); });
+      acList.appendChild(row);
+    });
+    acList.hidden = false;
+  }
+
+  input.addEventListener("input", function(){
+    acIndex = -1;
+    var q = input.value;
+    clearTimeout(acTimer);
+    if (cleanPc(q).length < 2){ hideAc(); return; }
+    acTimer = setTimeout(function(){
+      autocompletePostcode(q).then(function(items){
+        if (input.value !== q) return;
+        showAc(items.slice(0, 8));
+      });
+    }, 160);
+  });
+
+  input.addEventListener("keydown", function(e){
+    if (acList.hidden) { if (e.key === "Enter") doLookup(input.value); return; }
+    var rows = acList.querySelectorAll(".ac");
+    if (e.key === "ArrowDown"){ e.preventDefault(); acIndex = Math.min(acIndex+1, rows.length-1); paint(); }
+    else if (e.key === "ArrowUp"){ e.preventDefault(); acIndex = Math.max(acIndex-1, 0); paint(); }
+    else if (e.key === "Enter"){
+      e.preventDefault();
+      if (acIndex >= 0 && acItems[acIndex]){ input.value = acItems[acIndex]; hideAc(); doLookup(acItems[acIndex]); }
+      else doLookup(input.value);
+    }
+    else if (e.key === "Escape"){ hideAc(); }
+    function paint(){
+      rows.forEach(function(r,i){ r.classList.toggle("active", i===acIndex); });
+    }
+  });
+
+  input.addEventListener("blur", function(){ setTimeout(hideAc, 180); });
+  onTap($("pcGo"), function(){ hideAc(); doLookup(input.value); });
+
+  onTap($("geoBtn"), function(){
+    if (!navigator.geolocation){ setMsg("Geolocation not supported.", "err"); return; }
+    setMsg("Locating…");
+    navigator.geolocation.getCurrentPosition(function(pos){
+      reversePostcode(pos.coords.latitude, pos.coords.longitude)
+        .then(function(loc){ setMsg(""); $("pcInput").value = loc.postcode; addPostcode(loc); toast("Added " + loc.postcode); })
+        .catch(function(err){ setMsg(err.message || "Location lookup failed.", "err"); });
+    }, function(){ setMsg("Location permission denied.", "err"); }, { timeout: 12000, maximumAge: 60000 });
+  });
+}
+
+function doLookup(raw){
+  var val = String(raw || "").trim();
+  if (!val){ setMsg("Enter a postcode.", "err"); return; }
+  setMsg("Searching…");
+  lookupPostcode(val).then(function(loc){
+    setMsg("");
+    addPostcode(loc);
+    toast("Added " + loc.postcode);
+  }).catch(function(err){
+    setMsg(err.message || "Postcode not found.", "err");
+  });
+}
+
+/* ---------- settings UI ---------- */
+function setupSettings(){
+  var box = $("settings");
+  onTap($("settingsToggle"), function(){
+    box.classList.toggle("collapsed");
+    $("settingsCaret").textContent = box.classList.contains("collapsed") ? "▸" : "▾";
+  });
+
+  ["rainAlert","rainSevere","gustAlert","gustSevere","freezeAlert","freezeSevere"].forEach(function(k){
+    var inp = $("t-" + k);
+    inp.value = state.thresholds[k];
+    inp.addEventListener("change", function(){
+      var v = parseFloat(inp.value);
+      if (isNaN(v)) { inp.value = state.thresholds[k]; return; }
+      state.thresholds[k] = v;
+      saveState();
+      reanalyzeAll();
+    });
+  });
+
+  onTap($("resetTh"), function(){
+    state.thresholds = Object.assign({}, DEFAULT_TH);
+    ["rainAlert","rainSevere","gustAlert","gustSevere","freezeAlert","freezeSevere"].forEach(function(k){
+      $("t-" + k).value = state.thresholds[k];
+    });
+    saveState();
+    reanalyzeAll();
+    toast("Thresholds reset");
+  });
+}
+
+/* ---------- init ---------- */
+function init(){
+  loadState();
+  $("builtOn").textContent = "built " + new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+  setupSearch();
+  setupSettings();
+  renderSaved();
+  if (state.selected){
+    if (!state.saved.some(function(p){ return p.postcode === state.selected; })){
+      state.selected = state.saved.length ? state.saved[0].postcode : null;
+      saveState();
+    }
+  }
+  if (state.selected) loadSelected(true);
+  else renderMain();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+</script>
+</body>
+</html>
